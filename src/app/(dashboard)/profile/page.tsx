@@ -1,21 +1,21 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { format } from "date-fns"
-import { LogOut, KeyRound } from "lucide-react"
+import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { LogOut, KeyRound } from "lucide-react";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "~/components/ui/avatar"
+} from "~/components/ui/avatar";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card"
-import { Separator } from "~/components/ui/separator"
-import { Button } from "~/components/ui/button"
+} from "~/components/ui/card";
+import { Separator } from "~/components/ui/separator";
+import { Button } from "~/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -23,38 +23,96 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "~/components/ui/dialog"
-import { Input } from "~/components/ui/input"
+} from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
 
 type ProfileProps = {
-  name: string
-  email: string
-  applications: number
-  createdAt: Date
-}
-
-const mockUser: ProfileProps = {
-  name: "Gerald Okereke",
-  email: "geraldmokereke@gmail.com",
-  applications: 1,
-  createdAt: new Date("2024-04-23T14:30:00"),
-}
+  email: string;
+  role: string;
+  createdAt: string;
+};
 
 export default function ProfilePage() {
-  const { name, email, applications, createdAt } = mockUser
+  const [user, setUser] = useState<ProfileProps | null>(null);
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [password, setPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
 
-  const handlePasswordChange = () => {
-    // TODO: Integrate password change logic
-    console.log("Changing password to:", newPassword)
-  }
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("/api/auth/me", {
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅ fixed
+          },
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setUser(data.user);
+        } else {
+          console.error(data.message);
+        }
+      } catch (err) {
+        console.error("Error fetching user:", err);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+
+  const handlePasswordChange = async () => {
+    if (!user) return;
+
+    if (newPassword !== confirmPassword) {
+      return alert("New passwords do not match.");
+    }
+
+    try {
+      const res = await fetch("/api/auth/admin/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          currentPassword: password,
+          newPassword: newPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Failed to change password.");
+      } else {
+        alert("Password changed successfully!");
+        // Clear inputs
+        setPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (err) {
+      console.error("Error changing password:", err);
+      alert("Something went wrong.");
+    }
+  };
+
 
   const handleLogout = () => {
-    // TODO: Logout logic
-    console.log("Logging out...")
+    localStorage.removeItem("token");
+    location.reload(); // Or redirect
+  };
+
+  if (!user) {
+    return (
+      <main className="flex items-center justify-center my-36">
+        <p className="text-muted-foreground">Loading profile...</p>
+      </main>
+    );
   }
 
   return (
@@ -62,34 +120,26 @@ export default function ProfilePage() {
       <Card className="w-full max-w-md shadow-md">
         <CardHeader className="flex flex-col items-center space-y-4">
           <Avatar className="h-20 w-20">
-            <AvatarImage src="" alt={name} />
+            <AvatarImage src="" alt={user.email} />
             <AvatarFallback className="text-xl">
-              {name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+              {user.email[0].toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <CardTitle className="text-center">{name}</CardTitle>
+          <CardTitle className="text-center">{user.email}</CardTitle>
         </CardHeader>
 
         <Separator />
 
         <CardContent className="space-y-4">
           <div>
-            <p className="text-sm text-muted-foreground">Email</p>
-            <p className="text-base font-medium">{email}</p>
-          </div>
-
-          <div>
-            <p className="text-sm text-muted-foreground">Applications</p>
-            <p className="text-base font-medium">{applications}</p>
+            <p className="text-sm text-muted-foreground">Role</p>
+            <p className="text-base font-medium">{user.role}</p>
           </div>
 
           <div>
             <p className="text-sm text-muted-foreground">Member since</p>
             <p className="text-base font-medium">
-              {format(createdAt, "MMMM dd, yyyy")}
+              {format(new Date(user.createdAt), "MMMM dd, yyyy")}
             </p>
           </div>
 
@@ -148,5 +198,5 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
     </main>
-  )
+  );
 }

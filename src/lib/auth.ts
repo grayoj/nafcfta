@@ -20,7 +20,7 @@ export function authenticateDCA(token: string | undefined) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    if (decoded.role === "DCA") {
+    if (decoded.role === "DCA" || decoded.role === "ADMIN") {
       return decoded;
     }
   } catch (err) {

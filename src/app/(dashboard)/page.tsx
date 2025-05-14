@@ -1,7 +1,8 @@
-"use client"
+"use client";
 
-import { FileCheck, FileText, FileX2, Eye } from "lucide-react"
-import { StatCard } from "~/components/StatCard"
+import { useEffect, useState } from "react";
+import { FileCheck, FileText, FileX2, Eye } from "lucide-react";
+import { StatCard } from "~/components/StatCard";
 import {
   Pagination,
   PaginationContent,
@@ -10,7 +11,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "~/components/ui/pagination"
+} from "~/components/ui/pagination";
 import {
   Table,
   TableBody,
@@ -18,42 +19,73 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableFooter
-} from "~/components/ui/table"
-import { Button } from "~/components/ui/button"
+  TableFooter,
+} from "~/components/ui/table";
+import { Button } from "~/components/ui/button";
+import { toast } from "sonner";
 
-const stats = [
-  {
-    title: "Approved Files",
-    value: "0",
-    description: "Files approved",
-    icon: <FileCheck className="h-5 w-5 text-green-600" />,
-  },
-  {
-    title: "Submitted Files",
-    value: "1",
-    description: "Total files submitted",
-    icon: <FileText className="h-5 w-5 text-blue-600" />,
-  },
-  {
-    title: "Rejected Files",
-    value: "1",
-    description: "Files rejected",
-    icon: <FileX2 className="h-5 w-5 text-red-600" />,
-  },
-]
-
-const files = [
-  {
-    name: "N/A",
-    description: "N/A",
-    type: "N/A",
-    category: "N/A",
-    date: "N/A",
-  },
-]
+type File = {
+  name: string;
+  description: string;
+  type: string;
+  category: string;
+  date: string;
+  url?: string;
+};
 
 export default function Page() {
+  const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fetchFiles = async (currentPage = 1) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/files?page=${currentPage}&limit=10`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFiles(data.files || []);
+        setTotalPages(data.totalPages || 1);
+      } else {
+        toast.error("Failed to load files");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error fetching files");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFiles(page);
+  }, [page]);
+
+  const stats = [
+    {
+      title: "Approved Files",
+      value: files.filter((f) => f.category === "APPROVED").length.toString(),
+      description: "Files approved",
+      icon: <FileCheck className="h-5 w-5 text-green-600" />,
+    },
+    {
+      title: "Submitted Files",
+      value: files.length.toString(),
+      description: "Total files submitted",
+      icon: <FileText className="h-5 w-5 text-blue-600" />,
+    },
+    {
+      title: "Rejected Files",
+      value: files.filter((f) => f.category === "DECLINED").length.toString(),
+      description: "Files rejected",
+      icon: <FileX2 className="h-5 w-5 text-red-600" />,
+    },
+  ];
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       {/* Stat Cards */}
@@ -74,56 +106,94 @@ export default function Page() {
         <Table className="w-full table-auto">
           <TableHeader>
             <TableRow>
-              <TableHead className="text-sm font-semibold">Name</TableHead>
-              <TableHead className="text-sm font-semibold">Description</TableHead>
-              <TableHead className="text-sm font-semibold">Type</TableHead>
-              <TableHead className="text-sm font-semibold">Category</TableHead>
-              <TableHead className="text-sm font-semibold text-right">Date</TableHead>
-              <TableHead className="text-sm font-semibold text-center">Action</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-right">Date</TableHead>
+              <TableHead className="text-center">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {files.map((file) => (
-              <TableRow key={file.name}>
-                <TableCell className="text-sm">{file.name}</TableCell>
-                <TableCell className="text-sm">{file.description}</TableCell>
-                <TableCell className="text-sm">{file.type}</TableCell>
-                <TableCell className="text-sm">{file.category}</TableCell>
-                <TableCell className="text-sm text-right">{file.date}</TableCell>
-                <TableCell className="text-sm text-center">
-                  <Button variant="ghost" className="">
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-6">
+                  Loading...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : files.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-6">
+                  No files submitted
+                </TableCell>
+              </TableRow>
+            ) : (
+              files.map((file, index) => (
+                <TableRow key={index}>
+                  <TableCell>{file.name}</TableCell>
+                  <TableCell>{file.description}</TableCell>
+                  <TableCell>{file.type}</TableCell>
+                  <TableCell>{file.category}</TableCell>
+                  <TableCell className="text-right">{file.date}</TableCell>
+                  <TableCell className="text-center">
+                    <Button variant="ghost" size="icon" asChild>
+                      <a
+                        href={file.url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
-          {/* Pagination inside the table */}
           <TableFooter className="bg-white">
             <TableRow>
               <TableCell colSpan={6} className="text-right">
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
-                      <PaginationPrevious href="#" />
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setPage((prev) => Math.max(prev - 1, 1));
+                        }}
+                      />
                     </PaginationItem>
+
+                    {[...Array(totalPages)].map((_, i) => (
+                      <PaginationItem key={i}>
+                        <PaginationLink
+                          href="#"
+                          isActive={page === i + 1}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage(i + 1);
+                          }}
+                        >
+                          {i + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+
+                    {totalPages > 5 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+
                     <PaginationItem>
-                      <PaginationLink href="#">1</PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink href="#" isActive>
-                        2
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink href="#">3</PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationNext href="#" />
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setPage((prev) => Math.min(prev + 1, totalPages));
+                        }}
+                      />
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>
@@ -133,5 +203,5 @@ export default function Page() {
         </Table>
       </div>
     </div>
-  )
+  );
 }

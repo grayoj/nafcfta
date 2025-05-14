@@ -12,9 +12,6 @@ export async function GET(req: Request) {
 
   try {
     const applications = await prisma.application.findMany({
-      where: {
-        status: "PENDING",
-      },
       include: {
         document: true,
         user: true,
